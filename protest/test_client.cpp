@@ -23,12 +23,19 @@ void run() {
 
     SYLAR_LOG_INFO(g_logger) << "connect success, peer address: " << socket->getRemoteAddress()->toString();
     
-    chat::STRU_ADD_FRIEND_RS rq;
+    /* chat::STRU_ADD_FRIEND_RS rq;
     
     strcpy(rq.friendName, "test");
     rq.friendid = 3;
     rq.userid   = 5;
-    rq.result   = add_success;
+    rq.result   = add_success; */
+    /* chat::STRU_LOGIN_RQ rq;
+    strcpy(rq.username, "cxj");
+    strcpy(rq.password, "cxj"); */
+    chat::STRU_CHAT_RQ rq;
+    strcpy(rq.content, "hello");
+    rq.friendid = 9;
+    rq.userid   = 10;
     socket->send((char *)&rq, sizeof(rq));
     SYLAR_LOG_INFO(g_logger) << "send: 包大小" << sizeof(rq);
     int nPackSize = 0;	// 存储包大小

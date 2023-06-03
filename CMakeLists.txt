@@ -46,6 +46,7 @@ set(LIB_SRC
     sylar/tcp_server.cc 
     chat/chatserver.cpp
     chat/MySQLConnection.cpp
+    chat/fileserver.cpp
     )
 
 add_library(sylar SHARED ${LIB_SRC})
@@ -88,9 +89,12 @@ set(LIBS
 # sylar_add_executable(test_tcp_server "tests/test_tcp_server.cc" sylar "${LIBS}")
 # endif()
 # sylar_add_executable(test_socket_tcp_client "tests/test_socket_tcp_client.cc" sylar "${LIBS}")
-sylar_add_executable(test_client "protest/test_client.cpp" sylar "${LIBS}")
+# sylar_add_executable(test_client "protest/test_client.cpp" sylar "${LIBS}")
 sylar_add_executable(test_start "protest/test_start.cpp" sylar "${LIBS}")
-sylar_add_executable(test_mysql "protest/test_mysql.cpp" sylar "${LIBS}")
+# sylar_add_executable(test_mysql "protest/test_mysql.cpp" sylar "${LIBS}")
+# sylar_add_executable(test_Persistence "protest/test_Persistence.cpp" sylar "${LIBS}")
+sylar_add_executable(test_fileserver "protest/test_fileserver.cpp" sylar "${LIBS}")
+sylar_add_executable(test_downloadFile "protest/test_downloadFile.cpp" sylar "${LIBS}")
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)

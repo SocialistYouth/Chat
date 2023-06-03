@@ -475,7 +475,7 @@ std::string FileLogAppender::toYamlString() {
 
 Logger::Logger(const std::string &name)
     : m_name(name)
-    , m_level(LogLevel::INFO)
+    , m_level(LogLevel::DEBUG)
     , m_createTime(GetElapsedMS()) {
     }
 

@@ -44,11 +44,17 @@ namespace chat {
 // 文件块
 #define _DEF_PROTOCOL_FILE_BLOCK_RQ (_DEF_PROTOCOL_BASE + 12)
 #define _DEF_PROTOCOL_FILE_BLOCK_RS (_DEF_PROTOCOL_BASE + 13)
+// 想要添加的好友信息
+#define _DEF_PROTOCOL_GETUSERINFO_RQ (_DEF_PROTOCOL_BASE + 14)
+#define _DEF_PROTOCOL_GETUSERINFO_RS (_DEF_PROTOCOL_BASE + 15)
+#define _DEF_PROTOCOL_GETUSERICON_RS (_DEF_PROTOCOL_BASE + 16)
+
 // 最大文件路径长度
 #define _MAX_FILE_PATH_SIZE (512)
 // 最大文件大小
+#ifndef _DEF_FILE_CONTENT_SIZE
 #define _DEF_FILE_CONTENT_SIZE (8*1024)
-
+#endif
 //返回的结果
 //注册请求的结果
 #define user_is_exist		(0)
@@ -58,11 +64,13 @@ namespace chat {
 #define password_error		(1)
 #define login_success		(2)
 #define login_wait          (3)
-//添加好友的结果
+//添加好友的结果 & 获取用户信息返回的结果
 #define no_this_user		(0)
 #define user_refuse			(1)
 #define user_offline		(2)
 #define add_success			(3)
+#define getinfo_success     (4)
+
 
 //协议结构
 
@@ -222,27 +230,31 @@ typedef struct STRU_ADD_FRIEND_RQ
 {
     typedef int PackType;
     // 如果用户1 添加用户2 为好友 需要 用户1 id 用户1 名字 ,用户2的名字
-    STRU_ADD_FRIEND_RQ() :type(_DEF_PACK_ADDFRIEND_RQ), userid(0)
+    STRU_ADD_FRIEND_RQ() :type(_DEF_PACK_ADDFRIEND_RQ), senderId(0), receiverId(0)
     {
-        memset(userName, 0, sizeof(userName));
-        memset(friendName, 0, sizeof(friendName));
+        memset(senderName, 0, sizeof(senderName));
+        memset(receiverName, 0, sizeof(receiverName));
     }
     /**
      * @brief 数据包类型: _DEF_PACK_ADDFRIEND_RQ
     */
     PackType type;
     /**
-     * @brief 用户唯一id
+     * @brief 发送端id
     */
-    int userid;
+    int senderId;
     /**
-     * @brief 用户名
+     * @brief 发送端name
     */
-    char userName[_MAX_SIZE];
+    char senderName[_MAX_SIZE];
     /**
-     * @brief 好友名
-    */
-    char friendName[_MAX_SIZE];
+     * @brief 接收端id
+     */
+    int receiverId;
+    /**
+     * @brief 接收端name
+     */
+    char receiverName[_MAX_SIZE];
 
 }STRU_ADD_FRIEND_RQ;
 
@@ -252,33 +264,117 @@ typedef struct STRU_ADD_FRIEND_RQ
 typedef struct STRU_ADD_FRIEND_RS
 {
     typedef int PackType;
-    STRU_ADD_FRIEND_RS() :type(_DEF_PACK_ADDFRIEND_RS), userid(0), friendid(0), result(add_success)
+    STRU_ADD_FRIEND_RS() :type(_DEF_PACK_ADDFRIEND_RS), senderId(0), receiverId(0), result(add_success)
     {
-        memset(friendName, 0, sizeof(friendName));
+        memset(senderName, 0, sizeof(senderName));
     }
-    //如果用户1 添加用户2 需要 用户1id  用户2 id 用户2的名字 结果
+    /// @brief 数据包类型: _DEF_PACK_ADDFRIEND_RS
+    PackType type;
+    /// @brief 发送端id
+    int senderId; 
+    /// @brief 接收端id
+    int receiverId;
+    /// @brief 回复结果
+    int result;
+    /// @brief 发送端Name
+    char senderName[_MAX_SIZE];
+}STRU_ADD_FRIEND_RS;
+
+typedef struct STRU_GET_USERINFO_RQ{
+    typedef int PackType;
+    STRU_GET_USERINFO_RQ() : type(_DEF_PROTOCOL_GETUSERINFO_RQ), senderId(0)
+    {
+        memset(userName, 0, sizeof(userName));
+        memset(senderName, 0, sizeof(senderName));
+    }
     /**
-     * @brief 数据包类型: _DEF_PACK_ADDFRIEND_RS
+     * @brief 数据包类型: _DEF_PROTOCOL_GETUSERINFO_RQ
     */
     PackType type;
     /**
-     * @brief 用户唯一id
+     * @brief 用户Name
     */
-    int userid; // 用户1
+    char userName[_MAX_SIZE];
     /**
-     * @brief 好友id
+     * @brief 发送者Id
     */
-    int friendid; // 用户2
+    int senderId;
+    /**
+     * @brief 发送者Name
+    */
+    char senderName[_MAX_SIZE];
+}STRU_GET_USERINFO_RQ;
+
+typedef struct STRU_GET_USERINFO_RS{
+    typedef int PackType;
+    STRU_GET_USERINFO_RS() : type(_DEF_PROTOCOL_GETUSERINFO_RS), userId(0), result(no_this_user), nFileSize(0)
+    {
+        memset(userName, 0, sizeof(userName));
+        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
+        memset(szFileName, 0, _MAX_FILE_PATH_SIZE);
+    }
+    /**
+     * @brief 数据包类型: _DEF_PROTOCOL_GETUSERINFO_RS
+    */
+    PackType type;
+    /// 用户id
+    int userId;
+    /// 用户名
+    char userName[_MAX_SIZE];
     /**
      * @brief 回复结果
     */
     int result;
     /**
-     * @brief 好友用户名
+     * @brief 文件唯一id
     */
-    char friendName[_MAX_SIZE];
+    char szFileId[_MAX_FILE_PATH_SIZE];
+    /**
+     * @brief 文件名
+    */
+    char szFileName[_MAX_FILE_PATH_SIZE];
+    /**
+     * @brief 文件大小
+    */
+    uint64_t nFileSize;
+} STRU_GET_USERINFO_RS;
 
-}STRU_ADD_FRIEND_RS;
+typedef struct STRU_GET_USERICON_RS{
+    typedef int PackType;
+    enum Flag {
+        USERINFO, // 添加好友时查看的头像
+        NEWFRIEND, // 接受好友声请时查看的头像
+    };
+    STRU_GET_USERICON_RS() : type(_DEF_PROTOCOL_GETUSERICON_RS), userid(0), flag(USERINFO)
+    {
+        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
+        memset(szFileContent, 0, _DEF_FILE_CONTENT_SIZE);
+    }
+    /**
+     * @brief 数据包类型: _DEF_PROTOCOL_GETUSERICON_RS
+     */
+    PackType type;
+    /**
+     * @brief 发送者的用户id
+     */
+    int userid;
+    /**
+     * @brief 该好友头像的用处
+     */
+    Flag flag;
+    /**
+     * @brief 文件唯一id
+    */
+    char szFileId[_MAX_FILE_PATH_SIZE];
+    /**
+     * @brief 文件块内容
+    */
+    char szFileContent[_DEF_FILE_CONTENT_SIZE];
+    /**
+     * @brief 文件块大小
+    */
+    uint64_t nBlockSize;
+} STRU_GET_USERICON_RS;
 
 /**
  * @brief 聊天内容请求块
@@ -289,6 +385,7 @@ typedef struct STRU_CHAT_RQ
     STRU_CHAT_RQ() :type(_DEF_PACK_CHAT_RQ), userid(0), friendid(0)
     {
         memset(content, 0, _DEF_CONTENT_SIZE);
+        memset(createTime, 0, 20);
     }
     // 谁发给谁 服务器转发  用户1 id 用户2 id 发的内容
     /**
@@ -304,8 +401,12 @@ typedef struct STRU_CHAT_RQ
     */
     int friendid;
     /**
+     * @brief 聊天信息块的创建时间
+     */
+    char createTime[20];
+    /**
      * @brief 聊天内容
-    */
+     */
     char content[_DEF_CONTENT_SIZE];
 
 }STRU_CHAT_RQ;
@@ -352,73 +453,94 @@ typedef struct STRU_OFFLINE {
     int uuid;
 }STRU_OFFLINE;
 
+
+// fflush
+// 传文件流程
+// 秒传，分享(发)
+// 断点续传
+// 零拷贝
+// 文件切片（滑动窗口）
+
 // 文件传输协议
+
+// 1. Client<->Server<->Client
+/**
+ * @brief 文件信息
+*/
+/// MD5字符数组大小
+#define _MD5_STR_SIZE 33
+struct FileInfo
+{
+    FileInfo() : nPos(0), nFileSize(0), pFile(nullptr) {
+        memset(fileId  , 0, _MAX_FILE_PATH_SIZE);
+        memset(fileName, 0, _MAX_FILE_PATH_SIZE);
+        memset(filePath, 0, _MAX_FILE_PATH_SIZE);
+        memset(md5     , 0, _MD5_STR_SIZE      );
+    }
+    /// @brief 文件唯一id
+    char fileId[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件名
+    char fileName[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件所在路径
+    char filePath[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件MD5值
+    char md5[_MD5_STR_SIZE];
+    /// @brief 文件已经接受的字节数
+    uint64_t nPos;
+    /// @brief 文件大小
+    uint64_t nFileSize;
+    /// @brief 文件指针
+    FILE* pFile;
+};
 /**
  * @brief 文件信息请求
 */
 struct STRU_FILE_INFO_RQ {
     typedef int PackType;
-    STRU_FILE_INFO_RQ() : nType(_DEF_PROTOCOL_FILE_INFO_RQ), nFileSize(0), uuid(0), friendid(0) {
-        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
-        memset(szFileName, 0, _MAX_FILE_PATH_SIZE);
+    STRU_FILE_INFO_RQ() : type(_DEF_PROTOCOL_FILE_INFO_RQ), fileSize(0), senderId(0), receiverId(0) {
+        memset(fileId  , 0, _MAX_FILE_PATH_SIZE);
+        memset(fileName, 0, _MAX_FILE_PATH_SIZE);
+        memset(md5, 0, _MD5_STR_SIZE);
     }
-    /**
-     * @brief 数据包类型: _DEF_PROTOCOL_FILE_INFO_RQ
-    */
-    PackType nType;
-    /**
-     * @brief 文件唯一id
-    */
-    char szFileId[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件名
-    */
-    char szFileName[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件大小
-    */
-    uint64_t nFileSize;
-    /**
-     * @brief 用户唯一id
-    */
-    int uuid;
-    /**
-     * @brief 好友id
-    */
-    int friendid;
+    /// @brief 数据包类型: _DEF_PROTOCOL_FILE_INFO_RQ
+    PackType type;
+    /// @brief 文件唯一id
+    char fileId[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件名
+    char fileName[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件MD5值
+    char md5[_MD5_STR_SIZE];
+    /// @brief 文件大小
+    uint64_t fileSize;
+    /// @brief 发送者id
+    int senderId;
+    /// @brief 接收者id
+    int receiverId;
 };
 
-#define _file_accept (0)
-#define _file_refuse (1)
 /**
  * @brief 文件信息回复
 */
 struct STRU_FILE_INFO_RS 
 {
+    enum kResult {
+        ACCEPT,
+        REFUSE
+    };
     typedef int PackType;
-    STRU_FILE_INFO_RS() : nType(_DEF_PROTOCOL_FILE_INFO_RS), nResult(_file_accept), uuid(0), friendid(0) {
+    STRU_FILE_INFO_RS() : type(_DEF_PROTOCOL_FILE_INFO_RS), result(ACCEPT), senderId(0), receiverId(0) {
         memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
     }
-    /**
-     * @brief 数据包类型: _DEF_PROTOCOL_FILE_INFO_RS
-    */
-    PackType nType;
-    /**
-     * @brief 文件唯一id
-    */
+    /// @brief 数据包类型: _DEF_PROTOCOL_FILE_INFO_RS
+    PackType type;
+    /// @brief 文件唯一id
     char szFileId[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 回复结果
-    */
-    int nResult;
-    /**
-     * @brief 用户唯一id
-    */
-    int uuid;
-    /**
-     * @brief 好友id
-    */
-    int friendid;
+    /// @brief 回复结果
+    kResult result;
+    /// @brief 用户唯一id
+    int senderId;
+    /// @brief 接收者Id
+    int receiverId;
 };
 
 /**
@@ -427,34 +549,22 @@ struct STRU_FILE_INFO_RS
 struct STRU_FILE_BLOCK_RQ
 {
     typedef int PackType;
-    STRU_FILE_BLOCK_RQ() : nType(_DEF_PROTOCOL_FILE_BLOCK_RQ), nBlockSize(0), uuid(0), friendid(0) {
-        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
-        memset(szFileContent, 0, _DEF_FILE_CONTENT_SIZE);
+    STRU_FILE_BLOCK_RQ() : type(_DEF_PROTOCOL_FILE_BLOCK_RQ), blockSize(0), senderId(0), receiverId(0) {
+        memset(fileId, 0, _MAX_FILE_PATH_SIZE);
+        memset(fileContent, 0, _DEF_FILE_CONTENT_SIZE);
     }
-    /**
-     * @brief 数据包类型: _DEF_PROTOCOL_FILE_BLOCK_RQ
-    */
-    PackType nType;
-    /**
-     * @brief 文件唯一id
-    */
-    char szFileId[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件块内容
-    */
-    char szFileContent[_DEF_FILE_CONTENT_SIZE];
-    /**
-     * @brief 文件块大小
-    */
-    uint64_t nBlockSize;
-    /**
-     * @brief 用户唯一id
-    */
-    int uuid;
-    /**
-     * @brief 好友id
-    */
-    int friendid;
+    /// @brief 数据包类型: _DEF_PROTOCOL_FILE_BLOCK_RQ
+    PackType type;
+    /// @brief 文件唯一id
+    char fileId[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件块内容
+    char fileContent[_DEF_FILE_CONTENT_SIZE];
+    /// @brief 文件块大小
+    uint64_t blockSize;
+    /// @brief 用户唯一id
+    int senderId;
+    /// @brief 接收者Id
+    int receiverId;
 };
 
 #define _file_block_recv_success (0)
@@ -465,67 +575,50 @@ struct STRU_FILE_BLOCK_RQ
 struct STRU_FILE_BLOCK_RS
 {
     typedef int PackType;
-    STRU_FILE_BLOCK_RS() :nType(_DEF_PROTOCOL_FILE_BLOCK_RS), nResult(_file_block_recv_success), uuid(0), friendid(0) {
-        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
+    STRU_FILE_BLOCK_RS() :type(_DEF_PROTOCOL_FILE_BLOCK_RS), nResult(_file_block_recv_success), uuid(0), friendid(0) {
+        memset(fileId, 0, _MAX_FILE_PATH_SIZE);
     }
-    /**
-     * @brief 数据包类型: _DEF_PROTOCOL_FILE_BLOCK_RS
-    */
-    PackType nType;
-    /**
-     * @brief 文件唯一id
-    */
-    char szFileId[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 回复结果
-    */
+    /// @brief 数据包类型: _DEF_PROTOCOL_FILE_BLOCK_RS
+    PackType type;
+    /// @brief 文件唯一id
+    char fileId[_MAX_FILE_PATH_SIZE];
+    /// @brief 回复结果
     int nResult;
-    /**
-     * @brief 用户唯一id
-    */
+    /// @brief 用户唯一id
     int uuid;
-    /**
-     * @brief 好友id
-    */
+    /// @brief 好友id
     int friendid;
 };
 
-/**
- * @brief 文件信息
-*/
-struct FileInfo
-{
-    FileInfo() : nPos(0), nFileSize(0), pFile(nullptr) {
-        memset(szFileId, 0, _MAX_FILE_PATH_SIZE);
-        memset(szFileName, 0, _MAX_FILE_PATH_SIZE);
-        memset(szFilePath, 0, _MAX_FILE_PATH_SIZE);
+/* // 1. Client<->Server
+struct STRU_FILE_CONTENT_RQ {
+    typedef int PackType;
+    enum Method {
+        GET,
+        POST
+    };
+    STRU_FILE_CONTENT_RQ() {
     }
-    /**
-     * @brief 文件唯一id
-    */
-    char szFileId[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件名
-    */
-    char szFileName[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件所在路径
-    */
-    char szFilePath[_MAX_FILE_PATH_SIZE];
-    /**
-     * @brief 文件已经接受的字节数
-    */
-    uint64_t nPos;
-    /**
-     * @brief 文件大小
-    */
-    uint64_t nFileSize;
-    /**
-     * @brief 文件指针
-    */
-    int* pFile;
+    /// @brief 
+    PackType type;
+    /// @brief
+    Method method;
+    /// @brief 
+    char filePath[_MAX_FILE_PATH_SIZE];
+    
 };
 
+struct STRU_FILE_CONTENT_RS {
+    typedef int PackType;
+    /// @brief 数据包类型: _DEF_PROTOCOL_FILE_BLOCK_RQ
+    PackType type;
+    /// @brief 文件唯一id
+    char fileId[_MAX_FILE_PATH_SIZE];
+    /// @brief 文件块内容
+    char fileContent[_DEF_FILE_CONTENT_SIZE];
+    /// @brief 文件块大小
+    uint64_t blockSize;
+}; */
 } // namespace chat
 
 #endif //__PROTOCOL_H__

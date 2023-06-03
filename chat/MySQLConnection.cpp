@@ -1,8 +1,9 @@
 #include "MySQLConnection.h"
 #include "sylar/log.h"
+#include <string.h>
 
 namespace mysql {
-static sylar::Logger::ptr g_logger = SYLAR_LOG_NAME("MYSQL");
+static sylar::Logger::ptr g_logger = SYLAR_LOG_NAME("root");
 CMySql::CMySql(void) {
     /*这个函数用来分配或者初始化一个MYSQL对象，用于连接mysql服务端。
     如果你传入的参数是NULL指针，它将自动为你分配一个MYSQL对象，
@@ -10,7 +11,7 @@ CMySql::CMySql(void) {
     sock = new MYSQL;
     mysql_init(sock);
     // mysql_ssl_set(sock, NULL, NULL, NULL, NULL, 0);
-    mysql_set_character_set(sock, "gb2312"); // gb2312 中华人民共和国简体字标准
+    /* mysql_set_character_set(sock, "gb2312"); // gb2312 中华人民共和国简体字标准 */
 }
 
 CMySql::~CMySql(void) {
@@ -49,8 +50,10 @@ bool CMySql::GetTables(const char *szSql, std::list<std::string> &lstStr) {
 }
 bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> &lstStr) {
     // mysql_query() 函数用于向 MySQL 发送并执行 SQL 语句
-    if (mysql_query(sock, szSql))
+    if (mysql_query(sock, szSql)) {
+        SYLAR_LOG_INFO(g_logger) << "mysql_query failed " << mysql_error(sock);
         return false;
+    }
     /**
      * @brief mysql_store_result 对于成功检索了数据的每个查询(SELECT、SHOW、DESCRIBE、EXPLAIN、CHECK TABLE等)
      * @return
@@ -61,8 +64,12 @@ bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> 
         · CR_UNKNOWN_ERROR 　　		  出现未知错误。
     */
     results = mysql_store_result(sock);
-    if (NULL == results)
+    if (mysql_errno(sock)) {
+        SYLAR_LOG_INFO(g_logger) << "mysql_store_result failed " << mysql_error(sock);
         return false;
+    }
+    if (results == NULL)
+        return true;
     nColumn = mysql_num_fields(results); // 查询返回结果集有多少个字段
     // 遍历表中的下一行，取出内容放入record 结果集
     while ((record = mysql_fetch_row(results))) {
@@ -74,16 +81,19 @@ bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> 
                 lstStr.push_back(record[i]);
         }
     }
+    mysql_free_result(results);
     return true;
 }
 
 bool CMySql::UpdateMySql(const char *szSql) {
+    SYLAR_LOG_INFO(g_logger) << __func__ << " begin()";
     if (!szSql)
         return false;
-
-    if (mysql_query(sock, szSql))
+    SYLAR_LOG_INFO(g_logger) << __func__ << " middle()";
+    if (mysql_query(sock, szSql)) {
         return false;
-
+    }
+    SYLAR_LOG_INFO(g_logger) << __func__ << " end()";
     return true;
 }
 } // namespace mysql

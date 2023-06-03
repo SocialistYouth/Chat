@@ -1,3 +1,5 @@
+#ifndef __MYSQLCONNECTION_H__
+#define __MYSQLCONNECTION_H__
 #include <list>
 #include <mysql/mysql.h>
 #include <string>
@@ -51,3 +53,5 @@ private:
     MYSQL_ROW record;
 };
 } // namespace mysql
+
+#endif // __MYSQLCONNECTION_H__
