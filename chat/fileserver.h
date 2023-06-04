@@ -63,6 +63,8 @@ public:
 private:
     /// @brief 协议头与处理函数的映射
     std::map<int, std::function<void(sylar::Socket::ptr, const char *, int)>> m_deal_items;
+    /// @brief 文件Id与文件信息
+    std::map<std::string, file::FileInfo *> m_mapFileIdToFileInfo;
 };
 } // namespace file
 

@@ -93,13 +93,23 @@ void FileServer::dealFileContentRq(sylar::Socket::ptr client, const char* buf, i
     SYLAR_LOG_DEBUG(g_logger) << __func__;
     STRU_FILE_CONTENT_RQ* rq = (STRU_FILE_CONTENT_RQ*)buf;
     if (rq->method == STRU_FILE_CONTENT_RQ::GET) {
-        sendFile(client, std::string(rq->filePath));
+        sendFile(client, _DEF_FILE_POS_PREFIX + std::string(rq->filePath));
     } else if (rq->method == STRU_FILE_CONTENT_RQ::POST) {
-        
+        file::FileInfo *fileInfo = new file::FileInfo;
+        fileInfo->fileSize       = rq->fileSize;
+        fileInfo->nPos           = 0;
+        strcpy(fileInfo->fileId, rq->fileId);
+        fileInfo->pFile = fopen((_DEF_FILE_POS_PREFIX + std::string(rq->filePath)).c_str(), "w+");
+        if (fileInfo->pFile == nullptr) {
+            SYLAR_LOG_ERROR(g_logger) << "打开文件失败: " << _DEF_FILE_POS_PREFIX + std::string(rq->filePath);
+            return;
+        }
+        SYLAR_LOG_DEBUG(g_logger) << __func__ << " 打开文件成功:" << _DEF_FILE_POS_PREFIX + std::string(rq->filePath);
     }
 }
 
 bool FileServer::sendFile(sylar::Socket::ptr client, const std::string &filePath) {
+    SYLAR_LOG_DEBUG(g_logger) << __func__ << " filePath:" << filePath;
     int fd = open(filePath.c_str(), O_RDONLY);
     if (fd == -1) {
         SYLAR_LOG_ERROR(g_logger) << __func__ << "Failed to open file:" << GetFileName(filePath.c_str());

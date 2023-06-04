@@ -21,7 +21,7 @@ std::string fileServer = "0.0.0.0:8088";
 
 void dealGetInfoRs(const char* recvbuf, int recvlen) {
     chat::STRU_GET_USERINFO_RS *rs = (chat::STRU_GET_USERINFO_RS *)recvbuf;
-    auto path                      = rs->szFileName;
+    auto path                      = rs->filePath;
     bool ret;
     auto socket = sylar::Socket::CreateTCPSocket();
     SYLAR_ASSERT(socket);

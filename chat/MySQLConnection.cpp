@@ -86,14 +86,11 @@ bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> 
 }
 
 bool CMySql::UpdateMySql(const char *szSql) {
-    SYLAR_LOG_INFO(g_logger) << __func__ << " begin()";
     if (!szSql)
         return false;
-    SYLAR_LOG_INFO(g_logger) << __func__ << " middle()";
     if (mysql_query(sock, szSql)) {
         return false;
     }
-    SYLAR_LOG_INFO(g_logger) << __func__ << " end()";
     return true;
 }
 } // namespace mysql

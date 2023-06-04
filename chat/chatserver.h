@@ -36,9 +36,6 @@ public:
 	void setProtocolMap();
     /**
      * @brief 事件分发器
-     * @param[in] client 处理与客户端连接的socket
-     * @param[in] buf
-     * @param[in] buflen
      */
     void dealData(sylar::Socket::ptr client, const char *buf, int buflen);
     /* 该函数用于处理客户端发送的登录请求，验证用户名和密码是否正确 */
@@ -47,30 +44,18 @@ public:
     void dealRegisterRq(sylar::Socket::ptr client, const char *buf, int buflen);
     /**
 	 * @brief 获得好友列表
-	 * @param lSendIP
-	 * @param buf
-	 * @param nLen
 	*/
 	void getFriendList(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
 	 * @brief 处理聊天信息
-	 * @param lSendIP
-	 * @param buf
-	 * @param nLen
 	*/
 	void dealChatRq(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
 	 * @brief 处理添加好友请求
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
 	void dealAddFriendRq(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
 	 * @brief 对方(好友)回复申请
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
 	void dealAddFriendRs(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
@@ -81,44 +66,34 @@ public:
 	void getFriendInfoFromSql(int uuid, STRU_FRIEND_INFO* info);
 	/**
 	 * @brief 处理文件传输信息请求
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
-	void DealFileInfoRq(sylar::Socket::ptr client, const char* buf, int nLen);
+	void dealFileInfoRq(sylar::Socket::ptr client, const char* buf, int nLen);
 	/**
 	 * @brief 处理文件传输信息回复
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
 	void DealFileInfoRs(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
 	 * @brief 处理文件块请求
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
 	void DealFileBlockRq(sylar::Socket::ptr client, const char *buf, int buflen);
 	/**
 	 * @brief 处理文件块回复
-	 * @param lSendIP 
-	 * @param buf 
-	 * @param nLen 
 	*/
 	void DealFileBlockRs(sylar::Socket::ptr client, const char *buf, int buflen);
     void dealFileContentRq(sylar::Socket::ptr client, const char* buf, int buflen);
     void dealFileContentRs(sylar::Socket::ptr client, const char *buf, int buflen);
     /**
      * @brief 处理下线请求
-     * @param lSendIP
-     * @param buf
-     * @param nLen
      */
     void DealOfflineRq(sylar::Socket::ptr client, const char *buf, int buflen);
-	void DealGetUserInfoRq(sylar::Socket::ptr client, const char* buf, int buflen);
-    // 该函数用于初始化服务器，在该函数中可以注册路由和事件处理函数，以及启动定时任务等
-    void init();
+	
+	void dealGetUserInfoRq(sylar::Socket::ptr client, const char* buf, int buflen);
+	/**
+	 * @brief 处理用户修改头像
+	 */
+    void dealAvatarUpdate(sylar::Socket::ptr client, const char* buf, int buflen);
+
+    void init(); // 该函数用于初始化服务器，在该函数中可以注册路由和事件处理函数，以及启动定时任务等
 public: // 功能函数
 	/**
 	 * @brief 更新当前用户的离线时间
