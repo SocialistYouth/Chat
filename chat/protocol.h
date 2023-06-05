@@ -44,10 +44,11 @@ enum PackType {
     FILE_INFO_RQ = 110,
     FILE_INFO_RS = 111,
     UPDATE_AVATAR_RQ = 117,
-    UPDATE_AVATAR_RS = 118
+    UPDATE_AVATAR_RS = 118,
+    UPDATE_AVATAR_COMPLETE_NOTIFY = 119
 };
 // 用户头像上传路径
-#define _USER_AVATAR_UPLOAD_PATH ("/upload/userAvatar")
+#define _USER_AVATAR_UPLOAD_PATH ("/upload/userAvatar/")
 #define _USER_FILE_UPLOAD_PATH ("/upload/userFile/")
 // 最大文件路径长度
 #define _MAX_FILE_PATH_SIZE (512)
@@ -80,7 +81,7 @@ enum PackType {
 /**
  * @brief 注册请求块
  */
-
+struct FileInfo;
 struct STRU_REGISTER_RQ {
     typedef int PackType;
     STRU_REGISTER_RQ()
@@ -191,7 +192,6 @@ typedef struct STRU_FRIEND_INFO {
     STRU_FRIEND_INFO()
         : type(_DEF_PACK_FRIEND_INFO)
         , uuid(0)
-        , iconid(0)
         , state(0) {
         memset(username, 0, sizeof(username));
         memset(feeling, 0, sizeof(feeling));
@@ -201,15 +201,14 @@ typedef struct STRU_FRIEND_INFO {
     PackType type;
     /// @brief 用户唯一id
     int uuid;
-    /// @brief 头像id
-    int iconid;
+    /// @brief 头像信息
+    FileInfo avatarInfo;
     /// @brief 用户状态(在线|离线)
     int state;
     /// @brief 用户名
     char username[_MAX_SIZE];
     /// @brief 个性签名
     char feeling[_MAX_SIZE];
-
 } STRU_FRIEND_INFO;
 
 /**
@@ -462,9 +461,7 @@ typedef struct STRU_OFFLINE {
 
 struct FileInfo {
     FileInfo()
-        : nPos(0)
-        , nFileSize(0)
-        , pFile(nullptr) {
+        : nFileSize(0) {
         memset(fileId, 0, _MAX_FILE_PATH_SIZE);
         memset(fileName, 0, _MAX_FILE_PATH_SIZE);
         memset(filePath, 0, _MAX_FILE_PATH_SIZE);
@@ -478,12 +475,8 @@ struct FileInfo {
     char filePath[_MAX_FILE_PATH_SIZE];
     /// @brief 文件MD5值
     char md5[_MD5_STR_SIZE];
-    /// @brief 文件已经接受的字节数
-    uint64_t nPos;
     /// @brief 文件大小
     uint64_t nFileSize;
-    /// @brief 文件指针
-    FILE *pFile;
 };
 /**
  * @brief 文件信息请求
@@ -641,6 +634,28 @@ struct STRU_UPDATE_AVATAR_RS {
     Result result;
     char avatarId[_FILEID_STR_SIZE];
     char uploadPath[_MAX_FILE_PATH_SIZE];
+};
+
+struct STRU_UPDATE_AVATAR_COMPLETE_NOTIFY {
+    enum Result {
+        UPLOADSUCCESS
+    };
+    STRU_UPDATE_AVATAR_COMPLETE_NOTIFY()
+        : type(UPDATE_AVATAR_COMPLETE_NOTIFY)
+        , result(UPLOADSUCCESS)
+        , senderId(0)
+        , fileSize(0) {
+        memset(fileName, 0, _MAX_FILE_PATH_SIZE);
+        memset(fileMd5, 0, _MD5_STR_SIZE);
+        memset(avatarId, 0, _FILEID_STR_SIZE);
+    }
+    PackType type;
+    Result result;
+    int senderId;
+    int fileSize;
+    char fileName[_MAX_FILE_PATH_SIZE];
+    char fileMd5[_MD5_STR_SIZE];
+    char avatarId[_FILEID_STR_SIZE];
 };
 
 } // namespace chat

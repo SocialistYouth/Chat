@@ -28,6 +28,7 @@ void FileServer::setProtocolMap() {
         m_deal_items.insert({str, call});                                                                                    \
     }
     XX(FILE_CONTENT_RQ, dealFileContentRq);
+    XX(FILE_BLOCK_RQ, dealFileBlockRq);
 #undef XX
 }
 
@@ -50,7 +51,6 @@ void FileServer::handleClient(sylar::Socket::ptr client) {
         // char *recvbuf = new char[nPackSize];
         while (nPackSize) {
             if ((rt = client->recv(&recvbuf[0] + offset, nPackSize)) > 0) {
-                SYLAR_LOG_INFO(g_logger) << "接受到一次包大小:" << rt;
                 nPackSize -= rt;
                 offset += rt;
             }
@@ -70,7 +70,6 @@ void FileServer::handleClient(sylar::Socket::ptr client) {
 
 void FileServer::dealData(sylar::Socket::ptr client, const char *buf, int buflen) {
     unsigned int header_type = *(int *)buf;
-    SYLAR_LOG_INFO(g_logger) << "header_type:" << header_type;
     std::string type = "";
     switch (header_type) {
     case FILE_CONTENT_RQ:
@@ -79,12 +78,15 @@ void FileServer::dealData(sylar::Socket::ptr client, const char *buf, int buflen
     case FILE_CONTENT_RS:
         type = "FILE_CONTENT_RQ";
         break;
+    case FILE_BLOCK_RQ:
+        type = "FILE_BLOCK_RQ";
+        break;
     default:
         type = "UNKNOW";
         break;
     }
     SYLAR_LOG_INFO(g_logger) << "DealData() header_type:" << type;
-    if (header_type >= FILE_CONTENT_RQ && header_type <= FILE_CONTENT_RS)
+    if (header_type >= FILE_CONTENT_RQ && header_type <= 1100)
         m_deal_items[header_type](client, buf, buflen);
 }
 
@@ -104,7 +106,29 @@ void FileServer::dealFileContentRq(sylar::Socket::ptr client, const char* buf, i
             SYLAR_LOG_ERROR(g_logger) << "打开文件失败: " << _DEF_FILE_POS_PREFIX + std::string(rq->filePath);
             return;
         }
-        SYLAR_LOG_DEBUG(g_logger) << __func__ << " 打开文件成功:" << _DEF_FILE_POS_PREFIX + std::string(rq->filePath);
+        if (m_mapFileIdToFileInfo.find(fileInfo->fileId) == m_mapFileIdToFileInfo.end()) {
+            m_mapFileIdToFileInfo[fileInfo->fileId] = fileInfo;
+            SYLAR_LOG_DEBUG(g_logger) << __func__ << " 打开文件成功:" << _DEF_FILE_POS_PREFIX + std::string(rq->filePath);
+        }
+    }
+}
+
+void FileServer::dealFileBlockRq(sylar::Socket::ptr client, const char *buf, int buflen) {
+    STRU_FILE_BLOCK_RQ* rq = (STRU_FILE_BLOCK_RQ*)buf;
+    if (m_mapFileIdToFileInfo.find(rq->fileId) == m_mapFileIdToFileInfo.end()) {
+        SYLAR_LOG_ERROR(g_logger) << __func__ << "发送的文件没有文件信息, 无法保存";
+        return;
+    }
+    file::FileInfo *temp = m_mapFileIdToFileInfo[rq->fileId];
+    auto fd              = temp->pFile;
+    int nResult    = fwrite(rq->fileContent, sizeof(char), rq->blockSize, fd);
+    temp->nPos += nResult;
+    if (temp->nPos >= temp->fileSize) { // 已经收到所有文件块
+        SYLAR_LOG_DEBUG(g_logger) << __func__ << "已经全部接受" << temp->fileName;
+        fclose(fd);             // 关闭文件指针
+        m_mapFileIdToFileInfo.erase(rq->fileId);
+        delete temp;
+        temp = nullptr;
     }
 }
 

@@ -33,7 +33,8 @@ void ChatServer::setProtocolMap() {
     XX(_DEF_PROTOCOL_FILE_BLOCK_RQ, DealFileBlockRq);
     XX(_DEF_PROTOCOL_FILE_BLOCK_RS, DealFileBlockRs);
     XX(_DEF_PACK_OFFLINE_RQ, DealOfflineRq);
-    XX(UPDATE_AVATAR_RQ, dealAvatarUpdate);
+    XX(UPDATE_AVATAR_RQ, dealAvatarUpdateRq);
+    XX(UPDATE_AVATAR_COMPLETE_NOTIFY, dealAvatarUploadComplete);
 #undef XX
 }
 void ChatServer::init() {
@@ -311,11 +312,11 @@ void ChatServer::getFriendInfoFromSql(int uuid, STRU_FRIEND_INFO *info) {
     info->uuid = uuid;
     std::list<std::string> lstRes;
     char sqlbuf[1024] = "";
-    sprintf(sqlbuf, "select username, feeling from t_user where uuid = '%d';", uuid);
-    if (!m_sql.SelectMySql(sqlbuf, 2, lstRes)) {
+    sprintf(sqlbuf, "SELECT `t_user`.username, `t_user`.feeling, `t_file`.file_id, `t_file`.file_name, `t_file`.file_path, `t_file`.file_size, `t_file`.file_md5 FROM `t_user` INNER JOIN `t_file` ON `t_user`.avatar_id = `t_file`.file_id WHERE `t_user`.uuid = '%d';", uuid);
+    if (!m_sql.SelectMySql(sqlbuf, 7, lstRes)) {
         SYLAR_LOG_DEBUG(g_logger) << "getFriendInfoFromSql() Select Error:" << sqlbuf;
     }
-    if (lstRes.size() == 2) {
+    if (lstRes.size() == 7) {
         strcpy(info->username, lstRes.front().c_str());
         lstRes.pop_front();
         strcpy(info->feeling, lstRes.front().c_str());
@@ -416,7 +417,7 @@ bool ChatServer::pushOfflineMsg(sylar::Socket::ptr client, int userid) {
 
 void ChatServer::dealFileInfoRq(sylar::Socket::ptr client, const char *buf, int nLen) {
     SYLAR_LOG_DEBUG(g_logger) << __func__;
-    STRU_FILE_INFO_RQ* rq = (STRU_FILE_INFO_RQ*)buf;
+    STRU_FILE_INFO_RQ *rq = (STRU_FILE_INFO_RQ *)buf;
     char sqlbuf[1024]     = "";
     std::list<std::string> lstRes;
     std::string fileId;
@@ -428,7 +429,8 @@ void ChatServer::dealFileInfoRq(sylar::Socket::ptr client, const char *buf, int 
         strcpy(rs.filePath, _USER_FILE_UPLOAD_PATH);
         memset(sqlbuf, 0, sizeof(sqlbuf));
         sprintf(sqlbuf, "INSERT INTO `t_file`(`file_id`, `file_name`, `file_path`, `file_size`, `file_md5` \
-        VALUES(UUID(), '%s', '%s', %lu, '%s');", rq->fileName, _USER_FILE_UPLOAD_PATH, rq->fileSize, rq->md5);
+        VALUES(UUID(), '%s', '%s', %lu, '%s');",
+                rq->fileName, _USER_FILE_UPLOAD_PATH, rq->fileSize, rq->md5);
         client->send((char *)&rs, sizeof(rs));
     } else if (lstRes.size() == 1) { // 服务器有这个文件, 秒传
         fileId = lstRes.front();
@@ -439,7 +441,7 @@ void ChatServer::dealFileInfoRq(sylar::Socket::ptr client, const char *buf, int 
     memset(sqlbuf, 0, sizeof(sqlbuf));
     sprintf(sqlbuf, "UPDATE t_file SET referenced_count = (referenced_count + 1) WHERE file_id = '%s';", fileId.c_str());
     // 将发送文件信息存到消息同步库
-    
+
     // 如果对方好友在线, 转发buf
 
     /* std::cout << __func__ << std::endl;
@@ -595,7 +597,7 @@ void sendFile(sylar::Socket::ptr client, const std::string &filePath) {
     sendfile(client->getSocket(), fd); */
 }
 
-void ChatServer::dealAvatarUpdate(sylar::Socket::ptr client, const char *buf, int buflen) {
+void ChatServer::dealAvatarUpdateRq(sylar::Socket::ptr client, const char *buf, int buflen) {
     SYLAR_LOG_DEBUG(g_logger) << __func__;
     STRU_UPDATE_AVATAR_RQ *rq = (STRU_UPDATE_AVATAR_RQ *)buf;
     char sqlbuf[1024]         = "";
@@ -611,7 +613,7 @@ void ChatServer::dealAvatarUpdate(sylar::Socket::ptr client, const char *buf, in
         // 文件表中新添加一行记录
         memset(sqlbuf, 0, sizeof(sqlbuf));
         lstRes.clear();
-        sprintf(sqlbuf, "INSERT INTO `t_file`(`file_id`, `file_name`, `file_path`, `file_size`, `file_md5`) VALUES(UUID(), '%s', '%s', %d, '%s');", rq->fileName, ("/upload/userAvatar/" + std::string(rq->fileName)), rq->fileSize, rq->fileMd5);
+        sprintf(sqlbuf, "INSERT INTO `t_file`(`file_id`, `file_name`, `file_path`, `file_size`, `file_md5`) VALUES(UUID(), '%s', '%s', %d, '%s');", rq->fileName, ("/upload/userAvatar/" + std::string(rq->fileName)).c_str(), rq->fileSize, rq->fileMd5);
         if (!m_sql.UpdateMySql(sqlbuf)) {
             SYLAR_LOG_ERROR(g_logger) << "UpdateMySQL Error:" << sqlbuf;
             return;
@@ -640,6 +642,20 @@ void ChatServer::dealAvatarUpdate(sylar::Socket::ptr client, const char *buf, in
         return;
     }
     client->send((char *)&rs, sizeof(rs));
+}
+
+void ChatServer::dealAvatarUploadComplete(sylar::Socket::ptr client, const char *buf, int buflen) {
+    SYLAR_LOG_DEBUG(g_logger) << __func__;
+    STRU_UPDATE_AVATAR_COMPLETE_NOTIFY *notify = (STRU_UPDATE_AVATAR_COMPLETE_NOTIFY *)buf;
+    // 将文件表中该文件状态设为上传成功
+    char sqlbuf[1024] = "";
+    std::list<std::string> lstRes;
+    sprintf(sqlbuf, "UPDATE `t_file` SET file_state = 'UPLOAD_SUCCESS' WHERE file_id = '%s';", notify->avatarId);
+    if (!m_sql.UpdateMySql(sqlbuf)) {
+        SYLAR_LOG_ERROR(g_logger) << "UpdateMySQL Error:" << sqlbuf;
+        return;
+    }
+    // 通知该用户的所有好友头像变化事件
 }
 
 } // namespace chat

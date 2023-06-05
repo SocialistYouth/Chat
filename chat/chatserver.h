@@ -91,7 +91,9 @@ public:
 	/**
 	 * @brief 处理用户修改头像
 	 */
-    void dealAvatarUpdate(sylar::Socket::ptr client, const char* buf, int buflen);
+    void dealAvatarUpdateRq(sylar::Socket::ptr client, const char* buf, int buflen);
+
+    void dealAvatarUploadComplete(sylar::Socket::ptr client, const char *buf, int buflen);
 
     void init(); // 该函数用于初始化服务器，在该函数中可以注册路由和事件处理函数，以及启动定时任务等
 public: // 功能函数

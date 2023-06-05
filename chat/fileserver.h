@@ -44,7 +44,14 @@ public:
     void dealData(sylar::Socket::ptr client, const char *buf, int buflen);
 
 public:
+    /**
+     * @brief 处理文件内容请求(GET/POST)
+     * @param[] client 
+     * @param[] buf 
+     * @param[] buflen 
+     */
     void dealFileContentRq(sylar::Socket::ptr client, const char *buf, int buflen);
+    void dealFileBlockRq(sylar::Socket::ptr client, const char *buf, int buflen);
 
 public:
     bool sendFile(sylar::Socket::ptr client, const std::string &filePath);
