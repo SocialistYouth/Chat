@@ -134,17 +134,23 @@ void FileServer::dealFileBlockRq(sylar::Socket::ptr client, const char *buf, int
 
 bool FileServer::sendFile(sylar::Socket::ptr client, const std::string &filePath) {
     SYLAR_LOG_DEBUG(g_logger) << __func__ << " filePath:" << filePath;
+    // 1. 打开文件并获取文件描述符：
     int fd = open(filePath.c_str(), O_RDONLY);
     if (fd == -1) {
         SYLAR_LOG_ERROR(g_logger) << __func__ << "Failed to open file:" << GetFileName(filePath.c_str());
         return false;
     }
-    // 使用 sendfile 进行零拷贝传输
-    off_t offset = 0;
+    // 2. 获取文件的总大小：
     ssize_t fileSize     = lseek(fd, 0, SEEK_END);
     lseek(fd, 0, SEEK_SET);
-    ssize_t sendSize = sendfile(client->getSocket(), fd, &offset, fileSize);
-    SYLAR_LOG_INFO(g_logger) << "sendfile 发送文件大小:" << sendSize;
+    // 3. 使用 sendfile 进行零拷贝传输
+    off_t offset = 0;
+    ssize_t remaining = fileSize;
+    while(remaining > 0) {
+        ssize_t sendSize = sendfile(client->getSocket(), fd, &offset, remaining);
+        remaining -= sendSize;
+    }
+    SYLAR_LOG_INFO(g_logger) << "文件大小:" << fileSize  << "sendfile 还剩" << remaining<< "Bytes未发送";
     return true;
 }
 

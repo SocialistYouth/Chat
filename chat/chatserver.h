@@ -121,7 +121,7 @@ public: // 功能函数
 	 * @param[] client 接受client
 	 * @param[] friendId 发送id为friendid的头像
 	 */
-    void sendIcon(sylar::Socket::ptr client, int friendId, STRU_GET_USERICON_RS::Flag flag = STRU_GET_USERICON_RS::USERINFO);
+    // void sendIcon(sylar::Socket::ptr client, int friendId, STRU_GET_USERICON_RS::Flag flag = STRU_GET_USERICON_RS::USERINFO);
 
 private:
     mysql::CMySql m_sql;

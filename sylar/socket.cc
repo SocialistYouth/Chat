@@ -257,9 +257,7 @@ int Socket::send(const void *buffer, int length, int flags) {
     // 先发包大小，再发数据包
     if (isConnected()) {
         int rt = ::send(m_sock, (char *)&length, sizeof(int), flags);
-        SYLAR_LOG_INFO(g_logger) << "要发送的包大小: " << length << " 发送" << rt << "字节";
         rt = ::send(m_sock, buffer, length, flags);
-        SYLAR_LOG_INFO(g_logger) << "发送" << rt << "字节";
         return rt;
     }
     return -1;

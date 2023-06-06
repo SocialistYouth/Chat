@@ -1,3 +1,10 @@
+/*
+ * @Author: Cui XiaoJun
+ * @Date: 2023-06-05 23:27:43
+ * @LastEditTime: 2023-06-06 15:32:44
+ * @email: cxj2856801855@gmail.com
+ * @github: https://github.com/SocialistYouth/
+ */
 #include "MySQLConnection.h"
 #include "sylar/log.h"
 #include <string.h>
@@ -51,7 +58,7 @@ bool CMySql::GetTables(const char *szSql, std::list<std::string> &lstStr) {
 bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> &lstStr) {
     // mysql_query() 函数用于向 MySQL 发送并执行 SQL 语句
     if (mysql_query(sock, szSql)) {
-        SYLAR_LOG_INFO(g_logger) << "mysql_query failed " << mysql_error(sock);
+        SYLAR_LOG_ERROR(g_logger) << szSql << ":mysql_query failed: " << mysql_error(sock);
         return false;
     }
     /**
@@ -65,7 +72,7 @@ bool CMySql::SelectMySql(const char *szSql, int nColumn, std::list<std::string> 
     */
     results = mysql_store_result(sock);
     if (mysql_errno(sock)) {
-        SYLAR_LOG_INFO(g_logger) << "mysql_store_result failed " << mysql_error(sock);
+        SYLAR_LOG_ERROR(g_logger) << "mysql_store_result failed: " << mysql_error(sock);
         return false;
     }
     if (results == NULL)

@@ -1,7 +1,7 @@
 /*
  * @Author: Cui XiaoJun
  * @Date: 2023-05-13 14:08:41
- * @LastEditTime: 2023-05-13 14:55:33
+ * @LastEditTime: 2023-06-06 16:38:39
  * @email: cxj2856801855@gmail.com
  * @github: https://github.com/SocialistYouth/
  */
@@ -39,7 +39,7 @@ void ChatServer::setProtocolMap() {
 }
 void ChatServer::init() {
     // 1. 初始化数据库
-    if (!m_sql.ConnectMySql("127.0.0.1", "cxj", "Becauseofyou0926!", "IM")) {
+    if (!m_sql.ConnectMySql("123.57.187.239", "cxj", "Becauseofyou0926!", "IM")) {
         SYLAR_LOG_ERROR(g_logger) << "数据库打开失败";
         return;
     }
@@ -107,7 +107,7 @@ void ChatServer::dealLoginRq(sylar::Socket::ptr client, const char *buf, int buf
     int uuid          = 0;
     char sqlbuf[1024] = "";
     sprintf(sqlbuf, "select uuid, password from t_user where username = '%s';", rq->username);
-    if (!m_sql.SelectMySql(sqlbuf, 100, lstRes)) {
+    if (!m_sql.SelectMySql(sqlbuf, 2, lstRes)) {
         SYLAR_LOG_ERROR(g_logger) << "select error:" << sqlbuf;
     }
     STRU_LOGIN_RS rs;
@@ -123,8 +123,6 @@ void ChatServer::dealLoginRq(sylar::Socket::ptr client, const char *buf, int buf
         } else {
             rs.result = login_wait;
             rs.userid = uuid;
-            SYLAR_LOG_INFO(g_logger) << __func__ << " select uuid =" << uuid;
-
             // 登录成功
             client->send((char *)&rs, sizeof(rs));
             // 将uuid和对应的服务套接字对应
@@ -172,7 +170,6 @@ void ChatServer::getFriendList(sylar::Socket::ptr client, const char *buf, int b
     int *uuid = (int *)buf;
     STRU_FRIEND_INFO info;
     getFriendInfoFromSql(*uuid, &info); // 获取自己的信息
-    SYLAR_LOG_INFO(g_logger) << __func__ << " send 数据长度:" << sizeof(info);
     client->send((char *)&info, sizeof(info));
 
     // 获取好友信息列表
@@ -187,7 +184,6 @@ void ChatServer::getFriendList(sylar::Socket::ptr client, const char *buf, int b
         lstRes.pop_front();
         STRU_FRIEND_INFO friendinfo;
         getFriendInfoFromSql(friend_id, &friendinfo);
-        // std::cout << "getFriendList() friend_id: " << friendinfo.uuid << std::endl;
         client->send((char *)&friendinfo, sizeof(friendinfo));
         // 如果好友在线, 将自己上线的信息发送给好友
         if (m_mapIdToSock.find(friendinfo.uuid) != m_mapIdToSock.end()) {
@@ -221,13 +217,13 @@ void ChatServer::dealChatRq(sylar::Socket::ptr client, const char *buf, int bufl
     ss.clear();
 
     if (m_mapIdToSock.find(rq->friendid) == m_mapIdToSock.end()) { // 好友离线
-        STRU_CHAT_RS rs;
+        /* STRU_CHAT_RS rs;
         rs.userid   = rq->userid;
         rs.friendid = rq->friendid;
         rs.result   = user_offline;
         SYLAR_LOG_INFO(g_logger) << "dealChatRq() rs.userid" << rs.userid << " rs.friendid: " << rs.friendid;
         client->send((char *)&rs, sizeof(rs));
-        return;
+        return; */
     }
     // 好友在线
     auto sockFirend = m_mapIdToSock[rq->friendid];
@@ -237,11 +233,28 @@ void ChatServer::dealAddFriendRq(sylar::Socket::ptr client, const char *buf, int
     STRU_ADD_FRIEND_RQ *rq = (STRU_ADD_FRIEND_RQ *)buf;
     // 1. 如果对方在线, 发送添加好友请求
     if (m_mapIdToSock.find(rq->receiverId) != m_mapIdToSock.end()) { // 对方在线
-        m_mapIdToSock[rq->receiverId]->send(buf, buflen);
-        sendIcon(m_mapIdToSock[rq->receiverId], rq->senderId, STRU_GET_USERICON_RS::NEWFRIEND);
+        char sqlbuf[1024] = "";
+        std::list<std::string> lstRes;
+        sprintf(sqlbuf, "SELECT `t_file`.file_id, `t_file`.file_name, `t_file`.file_path, `t_file`.file_size, `t_file`.file_md5 FROM `t_file` WHERE `t_file`.file_id = (SELECT `t_user`.avatar_id FROM `t_user` WHERE uuid = %d);", rq->senderId);
+        m_sql.SelectMySql(sqlbuf, 5, lstRes);
+        if (lstRes.size() != 5) {
+            SYLAR_LOG_ERROR(g_logger) << __func__ << "查询sender头像信息有误";
+            return;
+        }
+        strcpy(rq->senderAvatarInfo.fileId, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq->senderAvatarInfo.fileName, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq->senderAvatarInfo.filePath, lstRes.front().c_str());
+        lstRes.pop_front();
+        rq->senderAvatarInfo.fileSize = atoi(lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq->senderAvatarInfo.md5, lstRes.front().c_str());
+        lstRes.pop_front();
+        m_mapIdToSock[rq->receiverId]->send((char *)&rq, buflen);
         return;
     }
-    // 1. 持久到消息同步库
+    // 2. 如果对方不在线, 持久到消息同步库
     std::stringstream ss;
     ss << "INSERT INTO `t_message_synchronization`(`messageType`, `sendTo`, `sendFrom`, `messageContent`) VALUES("
        << "'好友申请', " << rq->receiverId << ", " << rq->senderId << ", '" << rq->senderName << "');";
@@ -251,10 +264,10 @@ void ChatServer::dealAddFriendRq(sylar::Socket::ptr client, const char *buf, int
     ss.str("");
     ss.clear();
 }
+
 void ChatServer::dealAddFriendRs(sylar::Socket::ptr client, const char *buf, int buflen) {
     STRU_ADD_FRIEND_RS *rs = (STRU_ADD_FRIEND_RS *)buf;
-    // SYLAR_LOG_INFO(g_logger) << __func__ << " recv buf" << rs->friendid << rs->friendName << rs->userid << rs->result;
-    if (rs->result == add_success) { // 在好友关系表中加入该关系
+    if (rs->result == rs->ADD_SUCCESS) { // 在好友关系表中加入该关系
         std::stringstream ss;
         ss << "insert into t_friendship values(" << rs->senderId << ", " << rs->receiverId << ");";
         std::string sqlbuf = ss.str();
@@ -268,12 +281,12 @@ void ChatServer::dealAddFriendRs(sylar::Socket::ptr client, const char *buf, int
         if (!m_sql.UpdateMySql(sqlbuf.c_str())) {
             SYLAR_LOG_DEBUG(g_logger) << "dealAddFriendRs() INSERT ERROR: " << sqlbuf;
         }
-        SYLAR_LOG_INFO(g_logger) << __func__ << " add friendship success";
     }
-    if (m_mapIdToSock.count(rs->receiverId) > 0) {
+    getFriendList(client, (char*)&rs->senderId, sizeof(rs->senderId));
+    /* if (m_mapIdToSock.count(rs->receiverId) > 0) {
         auto sock = m_mapIdToSock[rs->receiverId];
         sock->send(buf, buflen);
-    }
+    } */
 }
 
 void ChatServer::dealGetUserInfoRq(sylar::Socket::ptr client, const char *buf, int buflen) {
@@ -281,10 +294,13 @@ void ChatServer::dealGetUserInfoRq(sylar::Socket::ptr client, const char *buf, i
     STRU_GET_USERINFO_RQ *rq = (STRU_GET_USERINFO_RQ *)buf;
     std::list<std::string> lstRes;
     char sqlbuf[1024] = "";
+    STRU_GET_USERINFO_RS rs;
     sprintf(sqlbuf, "select `t_user`.uuid, `t_file`.file_id, `t_file`.file_path, `t_file`.file_size, `t_file`.file_md5 from `t_user` inner join `t_file` on `t_user`.avatar_id = `t_file`.file_id where `t_user`.username = '%s';", rq->userName);
     m_sql.SelectMySql(sqlbuf, 5, lstRes);
     if (lstRes.size() != 5) {
         SYLAR_LOG_DEBUG(g_logger) << __func__ << "查询没有结果";
+        rs.result = rs.NO_THIS_USER;
+        client->send((char *)&rs, sizeof(rs));
         return;
     }
     int friendId = atoi(lstRes.front().c_str());
@@ -297,7 +313,6 @@ void ChatServer::dealGetUserInfoRq(sylar::Socket::ptr client, const char *buf, i
     lstRes.pop_front();
     std::string file_md5 = lstRes.front();
     lstRes.pop_front();
-    STRU_GET_USERINFO_RS rs;
     rs.userId = friendId;
     rs.result = STRU_GET_USERINFO_RS::GETINFO_SUCCESS;
     strcpy(rs.userName, rq->userName);
@@ -321,13 +336,22 @@ void ChatServer::getFriendInfoFromSql(int uuid, STRU_FRIEND_INFO *info) {
         lstRes.pop_front();
         strcpy(info->feeling, lstRes.front().c_str());
         lstRes.pop_front();
+        strcpy(info->avatarInfo.fileId, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(info->avatarInfo.fileName, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(info->avatarInfo.filePath, lstRes.front().c_str());
+        lstRes.pop_front();
+        info->avatarInfo.fileSize = atoi(lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(info->avatarInfo.md5, lstRes.front().c_str());
+        lstRes.pop_front();
     }
     if (m_mapIdToSock.find(uuid) != m_mapIdToSock.end()) {
         info->state = 1;
     } else {
         info->state = 0;
     }
-    SYLAR_LOG_INFO(g_logger) << "getFriendInfoFromSql() info->uuid: " << info->uuid << " info->username: " << info->username;
 }
 
 void ChatServer::DealOfflineRq(sylar::Socket::ptr client, const char *buf, int buflen) {
@@ -395,22 +419,43 @@ bool ChatServer::pushOfflineMsg(sylar::Socket::ptr client, int userid) {
     }
     lstRes.clear(); // 清空list容器
     // 2. 推送离线好友申请信息(名称+头像)
-    ss << "SELECT `sendFrom`, `messageContent` FROM `t_message_synchronization` WHERE `sendTo` = " << userid << " AND `messageType` = '好友申请' "
-       << "AND `createTime` >= (SELECT `last_login_time` FROM `t_user` WHERE `uuid` = " << userid << ");";
-    m_sql.SelectMySql(ss.str().c_str(), 1, lstRes);
+    ss << "SELECT"
+       << " tms.sendFrom,"
+       << " tms.messageContent,"
+       << " tf.file_id,"
+       << " tf.file_name,"
+       << " tf.file_path,"
+       << " tf.file_size,"
+       << " tf.file_md5 "
+       << "FROM"
+       << " t_message_synchronization AS tms"
+       << " JOIN t_user AS tu ON tms.sendFrom = tu.uuid"
+       << " JOIN t_file AS tf ON tu.avatar_id = tf.file_id "
+       << "WHERE"
+       << " tms.sendTo = " << userid
+       << " AND tms.messageType = '好友申请'"
+       << " AND tms.createTime > tu.last_login_time;";
+    m_sql.SelectMySql(ss.str().c_str(), 7, lstRes);
     ss.str("");
     ss.clear();
     while (lstRes.size() > 0) {
-        int senderId = atoi(lstRes.front().c_str());
-        lstRes.pop_front();
-        std::string senderName = lstRes.front();
-        lstRes.pop_front();
         STRU_ADD_FRIEND_RQ rq;
+        rq.senderId = atoi(lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq.senderName, lstRes.front().c_str());
+        lstRes.pop_front();
         rq.receiverId = userid;
-        rq.senderId   = senderId;
-        strcpy(rq.senderName, senderName.c_str());
+        strcpy(rq.senderAvatarInfo.fileId, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq.senderAvatarInfo.fileName, lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq.senderAvatarInfo.filePath, lstRes.front().c_str());
+        lstRes.pop_front();
+        rq.senderAvatarInfo.fileSize = atoi(lstRes.front().c_str());
+        lstRes.pop_front();
+        strcpy(rq.senderAvatarInfo.md5, lstRes.front().c_str());
+        lstRes.pop_front();
         client->send((char *)&rq, sizeof(rq));
-        sendIcon(client, senderId, STRU_GET_USERICON_RS::NEWFRIEND);
     }
     return true;
 }
@@ -540,7 +585,7 @@ std::string ChatServer::GetFileName(const char *path) {
     return std::string();
 }
 
-void ChatServer::sendIcon(sylar::Socket::ptr client, int friendId, STRU_GET_USERICON_RS::Flag flag) { // 发送friendId头像信息给Client
+/* void ChatServer::sendIcon(sylar::Socket::ptr client, int friendId, STRU_GET_USERICON_RS::Flag flag) { // 发送friendId头像信息给Client
     STRU_GET_USERICON_RS rs;
     rs.userid     = friendId;
     rs.flag       = flag;
@@ -578,7 +623,7 @@ void ChatServer::sendIcon(sylar::Socket::ptr client, int friendId, STRU_GET_USER
         nPos += nReadLen;
     }
     fclose(fd);
-}
+} */
 
 void ChatServer::dealFileContentRq(sylar::Socket::ptr client, const char *buf, int buflen) {
     // GET需要返回结果, POST无需返回结果
@@ -656,6 +701,7 @@ void ChatServer::dealAvatarUploadComplete(sylar::Socket::ptr client, const char 
         return;
     }
     // 通知该用户的所有好友头像变化事件
+    getFriendList(client, (char *)&notify->senderId, sizeof(notify->senderId));
 }
 
 } // namespace chat
